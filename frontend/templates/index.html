@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<h2>Добро пожаловать!</h2>
+<p>Это главная страница вашего приложения.</p>
+
+<div class="button-container">
+    <a href="/upload" class="btn">Загрузить файлы</a>
+    <a href="/view_elasticsearch" class="btn">Просмотреть данные из Elasticsearch</a>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Данные из Elasticsearch{% endblock %}
+
+{% block content %}
+<h2>Все записи из Elasticsearch</h2>
+
+{% if error_message %}
+<p style="color: red;">{{ error_message }}</p>
+{% endif %}
+
+{% if records %}
+<table border="1">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Имя файла</th>
+            <th>Содержимое</th>
+            <th>Время загрузки</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.id }}</td>
+            <td>{{ record.filename }}</td>
+            <td>{{ record.content }}</td>
+            <td>{{ record.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Записи не найдены.</p>
+{% endif %}
+
+<a href="/" class="btn">Назад на главную</a>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Загрузка файлов{% endblock %}
+
+{% block content %}
+<h2>Загрузка файлов</h2>
+
+<!-- Форма для загрузки файлов -->
+<form action="/upload_files" method="post" enctype="multipart/form-data">
+    <input type="file" name="files" multiple required>
+    <button type="submit">Загрузить файлы</button>
+</form>
+
+<!-- Форма для объединения файлов -->
+<form action="/merge_files" method="post">
+    <button type="submit">Объединить файлы</button>
+</form>
+
+<!-- Сообщения -->
+{% if success %}
+<div class="alert success">
+    {{ success.replace('+', ' ') }}
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert error">
+    {{ error.replace('+', ' ') }}
+</div>
+{% endif %}
+
+<style>
+    .alert {
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
+    }
+    .success {
+        background-color: #dff0d8;
+        color: #3c763d;
+        border: 1px solid #d6e9c6;
+    }
+    .error {
+        background-color: #f2dede;
+        color: #a94442;
+        border: 1px solid #ebccd1;
+    }
+    form {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 5px;
+    }
+    input[type="file"] {
+        display: block;
+        margin-bottom: 10px;
+    }
+    button {
+        padding: 10px 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+</style>
+{% endblock %}

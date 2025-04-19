@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Инвентаризация инфраструктуры Газпром Нефть{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="container">
+        <!-- Логотип -->
+        <div class="logo-container">
+            <img src="/static/logo.png" alt="Газпром Нефть" class="logo">
+        </div>
+        <h1>Инвентаризация инфраструктуры Газпром Нефть</h1>
+        <nav>
+            <a href="/">Главная</a> |
+            <a href="/upload">Загрузить файлы</a> 
+        </nav>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
