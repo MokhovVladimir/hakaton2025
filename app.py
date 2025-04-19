@@ -10,6 +10,8 @@ import glob
 from elasticsearch import Elasticsearch
 from pathlib import Path
 import pandas as pd
+import re
+from typing import Optional
 
 app = FastAPI()
 
@@ -22,6 +24,65 @@ CSV_FOLDER = "./db/"
 MERGED = 'input.csv'
 RESULT = 'result.csv'
 DELETED = 'deleted.csv'
+
+
+# Регулярные выражения для валидации
+status_pattern = r'(В эксплуатации|Планируется|Подготовка к эксплуатации|Выведен из эксплуатации|На обслуживании)?'
+ci_code_pattern = r'[A-Za-z]{3}[ -]\d{8}'
+hostname_pattern = r'$|^[A-Za-z]{3}\d-[A-Za-z]{3}-[A-Za-z]{3}'
+dns_pattern = r'$|^[A-Za-z]{3}\d-[A-Za-z]{3}-[A-Za-z]{3}\.[A-Za-z]\.[A-Za-z]*'
+short_name_pattern = r'^.*$'
+created_on_pattern = r'$|^.*'
+updated_on_pattern = r'$|^.*'
+name_pattern = r'[^|]*\|[^|]*'
+id_pattren = r'[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{12}'
+type_pattern = r'^.*$'
+serial_pattern = r'$|^[A-Za-z]*'
+full_name_pattern = r'$|^.*'
+description_pattern = r'$|^.*'
+notes_pattern = r'$|^.*'
+manufacturer_pattern = r'$|^.*'
+model_pattern = r'$|^.*'
+location_pattern = r'$|^.*'
+ip_pattern = r'$|^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+cpu_cores_pattern = r'$|^\d+'
+cpu_freq_pattern = r'$|^-?\d+\.\d+'
+ram_pattern = r'^$|^\d+'
+total_volume_pattern = r'^$|^\d+$'
+category_pattern = r'^$|^\d+$'
+user_org_pattern = r'^$|^.*$'
+owner_org_pattern = r'^$|^.*$'
+code_mon_pattern = r'^$|^.*$'
+mount_pattern = r'^$|^(?:[Сс]тойка|[Мм]есто)\s*\d+$'
+
+# Константы для имен полей
+STATUS = 'status'
+CI_CODE = 'ci_code'
+HOSTNAME = 'hostname'
+DNS = 'dns'
+SHORT_NAME = 'short_name'
+CREATED_ON = 'created_on'
+UPDATED_ON = 'updated_on'
+NAME = 'name'
+ID = 'id'
+TYPE = 'type'
+SERIAL = 'serial'
+FULL_NAME = 'full_name'
+DESCRIPTION = 'description'
+NOTES = 'notes'
+MANUFACTURER = 'manufacturer'
+MODEL = 'model'
+LOCATION = 'location'
+IP = 'ip'
+CPU_CORES = 'cpu_cores'
+CPU_FREQ = 'cpu_freq'
+RAM = 'ram'
+TOTAL_VOLUME = 'total_volume'
+CATEGORY = 'category'
+USER_ORG = 'user_org'
+OWNER_ORG = 'owner_org'
+CODE_MON = 'code_mon'
+MOUNT = 'mount'
 
 # Инициализация Elasticsearch с таймаутами
 es = Elasticsearch([ELASTICSEARCH_HOST])
@@ -173,7 +234,7 @@ def get_etalon_headers():
         return next(reader)
 
 def merge_csv():
-    """Объединяет первые 500 строк из каждого CSV файла"""
+    """Объединяет первые 2000 строк из каждого CSV файла"""
     try:
         etalon_headers = get_etalon_headers()
         csv_files = [f for f in os.listdir(CSV_FOLDER) 
@@ -191,7 +252,7 @@ def merge_csv():
                     file_path,
                     encoding='utf-8',
                     sep=',',
-                    nrows=500
+                    nrows=2000
                 )
                 
                 missing_cols = set(etalon_headers) - set(df.columns)
@@ -261,6 +322,82 @@ def add_to_deleted(row):
         print(f"Ошибка при добавлении в deleted.csv: {str(e)}")
         return False
 
+def validate_csv(input_path: str, result_path: str, deleted_path: str):
+    """Проверяет input.csv и разделяет данные на valid (result.csv) и invalid (deleted.csv)"""
+    try:
+        etalon_headers = get_etalon_headers()
+        
+        with open(input_path, 'r', encoding='utf-8') as input_file, \
+             open(result_path, 'w', encoding='utf-8', newline='') as result_file, \
+             open(deleted_path, 'w', encoding='utf-8', newline='') as deleted_file:
+            
+            reader = csv.DictReader(input_file)
+            result_writer = csv.DictWriter(result_file, fieldnames=etalon_headers)
+            deleted_writer = csv.DictWriter(deleted_file, fieldnames=etalon_headers)
+            
+            result_writer.writeheader()
+            deleted_writer.writeheader()
+            
+            valid_count = 0
+            invalid_count = 0
+            
+            for row in reader:
+                if all_regular_is_valid(row):
+                    result_writer.writerow(row)
+                    valid_count += 1
+                else:
+                    deleted_writer.writerow(row)
+                    invalid_count += 1
+            
+            return {
+                "status": "success",
+                "valid_count": valid_count,
+                "invalid_count": invalid_count
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def all_regular_is_valid(row: dict) -> bool:
+    """Проверяет строку на соответствие всем регулярным выражениям"""
+    try:
+        checks = [
+            re.fullmatch(status_pattern, str(row.get(STATUS, ''))),
+            re.fullmatch(ci_code_pattern, str(row.get(CI_CODE, ''))),
+            re.fullmatch(hostname_pattern, str(row.get(HOSTNAME, ''))),
+            re.fullmatch(dns_pattern, str(row.get(DNS, ''))),
+            re.fullmatch(short_name_pattern, str(row.get(SHORT_NAME, ''))),
+            re.fullmatch(created_on_pattern, str(row.get(CREATED_ON, ''))),
+            re.fullmatch(updated_on_pattern, str(row.get(UPDATED_ON, ''))),
+            re.fullmatch(name_pattern, str(row.get(NAME, ''))),
+            re.fullmatch(id_pattren, str(row.get(ID, ''))),
+            re.fullmatch(type_pattern, str(row.get(TYPE, ''))),
+            re.fullmatch(serial_pattern, str(row.get(SERIAL, ''))),
+            re.fullmatch(full_name_pattern, str(row.get(FULL_NAME, ''))),
+            re.fullmatch(description_pattern, str(row.get(DESCRIPTION, ''))),
+            re.fullmatch(notes_pattern, str(row.get(NOTES, ''))),
+            re.fullmatch(manufacturer_pattern, str(row.get(MANUFACTURER, ''))),
+            re.fullmatch(model_pattern, str(row.get(MODEL, ''))),
+            re.fullmatch(location_pattern, str(row.get(LOCATION, ''))),
+            re.fullmatch(ip_pattern, str(row.get(IP, ''))),
+            re.fullmatch(cpu_cores_pattern, str(row.get(CPU_CORES, ''))),
+            re.fullmatch(cpu_freq_pattern, str(row.get(CPU_FREQ, ''))),
+            re.fullmatch(ram_pattern, str(row.get(RAM, ''))),
+            re.fullmatch(total_volume_pattern, str(row.get(TOTAL_VOLUME, ''))),
+            re.fullmatch(category_pattern, str(row.get(CATEGORY, ''))),
+            re.fullmatch(user_org_pattern, str(row.get(USER_ORG, ''))),
+            re.fullmatch(owner_org_pattern, str(row.get(OWNER_ORG, ''))),
+            re.fullmatch(code_mon_pattern, str(row.get(CODE_MON, ''))),
+            re.fullmatch(mount_pattern, str(row.get(MOUNT, '')))
+        ]
+        return all(checks)
+    except Exception as e:
+        print(f"Ошибка валидации строки: {e}")
+        return False
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -323,50 +460,97 @@ async def merge_files(request: Request):
             status_code=303
         )
 
-@app.get("/view_elasticsearch", response_class=HTMLResponse)
-async def view_elasticsearch(request: Request):
+@app.get("/view_elasticsearch-original", response_class=HTMLResponse)
+async def view_elasticsearch(
+    request: Request,
+    query: Optional[str] = None,  # Полнотекстовый запрос
+    page: int = 1,  # Номер страницы
+    size: int = 50  # Количество документов на странице
+):
     try:
-        # Запрос всех документов из индекса 'input_db'
-        response = es.search(
-            index="input_db",
-            body={"query": {"match_all": {}}}
-        )
+        # Расчет смещения (offset) для пагинации
+        from_ = (page - 1) * size
+
+        # Формируем запрос к Elasticsearch
+        if query:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": [
+                            "name",
+                            "ci_code",
+                            "short_name",
+                            "full_name",
+                            "description",
+                            "notes",
+                            "manufacturer",
+                            "serial",
+                            "model",
+                            "location",
+                            "mount",
+                            "hostname",
+                            "dns",
+                            "type",
+                            "category",
+                            "user_org",
+                            "owner_org",
+                            "code_mon"
+                        ]
+                    }
+                }
+            }
+        else:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {"match_all": {}}
+            }
+
+        # Выполняем поиск в индексе 'input_db'
+        response = es.search(index=ELASTICSEARCH_INDEX, body=search_query)
+
         # Извлечение данных из ответа Elasticsearch
         records = [
             {
+                "_id": hit["_id"],  # ID документа в Elasticsearch
                 "id": hit["_source"].get("id", "N/A"),
-                "created_on": hit["_source"].get("created_on", "N/A"),
-                "updated_on": hit["_source"].get("updated_on", "N/A"),
                 "name": hit["_source"].get("name", "N/A"),
                 "ci_code": hit["_source"].get("ci_code", "N/A"),
                 "short_name": hit["_source"].get("short_name", "N/A"),
                 "full_name": hit["_source"].get("full_name", "N/A"),
-                "description": hit["_source"].get("description", "N/A"),
-                "notes": hit["_source"].get("notes", "N/A"),
-                "status": hit["_source"].get("status", "N/A"),
                 "manufacturer": hit["_source"].get("manufacturer", "N/A"),
                 "serial": hit["_source"].get("serial", "N/A"),
-                "model": hit["_source"].get("model", "N/A"),
                 "location": hit["_source"].get("location", "N/A"),
                 "mount": hit["_source"].get("mount", "N/A"),
                 "hostname": hit["_source"].get("hostname", "N/A"),
                 "dns": hit["_source"].get("dns", "N/A"),
                 "ip": hit["_source"].get("ip", "N/A"),
-                "cpu_cores": hit["_source"].get("cpu_cores", "N/A"),
-                "cpu_freq": hit["_source"].get("cpu_freq", "N/A"),
-                "ram": hit["_source"].get("ram", "N/A"),
-                "total_volume": hit["_source"].get("total_volume", "N/A"),
                 "type": hit["_source"].get("type", "N/A"),
                 "category": hit["_source"].get("category", "N/A"),
                 "user_org": hit["_source"].get("user_org", "N/A"),
-                "owner_org": hit["_source"].get("owner_org", "N/A"),
                 "code_mon": hit["_source"].get("code_mon", "N/A")
             }
             for hit in response["hits"]["hits"]
         ]
+
+        # Подготовка данных для пагинации
+        total_hits = response["hits"]["total"]["value"]  # Общее количество документов
+        total_pages = (total_hits + size - 1) // size  # Общее количество страниц
+
         return templates.TemplateResponse(
             "view_elasticsearch.html",
-            {"request": request, "records": records}
+            {
+                "request": request,
+                "records": records,
+                "page": page,
+                "size": size,
+                "total_pages": total_pages,
+                "total_hits": total_hits,
+                "query": query  # Передаем текущий запрос обратно в шаблон
+            }
         )
     except Exception as e:
         error_message = f"Ошибка при получении данных из Elasticsearch: {str(e)}"
@@ -374,6 +558,56 @@ async def view_elasticsearch(request: Request):
             "view_elasticsearch.html",
             {"request": request, "error_message": error_message}
         )
+
+@app.post("/validate_csv")
+async def handle_validate_csv(request: Request):
+    try:
+        input_path = os.path.join(CSV_FOLDER, MERGED)
+        result_path = os.path.join(CSV_FOLDER, RESULT)
+        deleted_path = os.path.join(CSV_FOLDER, DELETED)
+        
+        if not os.path.exists(input_path):
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "error": "Файл input.csv не найден",
+                    "show_alert": True
+                }
+            )
+        
+        validation_result = validate_csv(input_path, result_path, deleted_path)
+        
+        if validation_result["status"] == "success":
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "success": f"Обработано записей: {validation_result['valid_count']} валидных, {validation_result['invalid_count']} невалидных",
+                    "show_alert": True
+                }
+            )
+        else:
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "error": f"Ошибка валидации: {validation_result['message']}",
+                    "show_alert": True
+                }
+            )
+            
+    except Exception as e:
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "error": f"Ошибка: {str(e)}",
+                "show_alert": True
+            }
+        )
+
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

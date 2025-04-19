@@ -35,17 +35,6 @@ services:
     volumes:
       - es-data:/usr/share/elasticsearch/data
 
-  grafana-test:
-    image: grafana/grafana:9.0.8
-    container_name: grafana
-    restart: always
-    networks:
-      - app-network
-    volumes:
-      - ./grafana:/etc/grafana/provisioning
-    ports:
-      - '3200:3000'
-
 volumes:
   es-data:
 

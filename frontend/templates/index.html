@@ -3,11 +3,115 @@
 {% block title %}Главная{% endblock %}
 
 {% block content %}
-<h2>Добро пожаловать!</h2>
-<p>Это главная страница вашего приложения.</p>
+<div class="container main-container">
+    <h2 class="welcome-title">Добро пожаловать!</h2>
+    <p class="welcome-text">Это главная страница вашего приложения.</p>
 
-<div class="button-container">
-    <a href="/upload" class="btn">Загрузить файлы</a>
-    <a href="/view_elasticsearch" class="btn">Просмотреть данные из Elasticsearch</a>
+    <!-- Кнопки действий -->
+    <div class="action-buttons">
+        <a href="/upload" class="btn action-btn">
+            <i class="fas fa-upload"></i> Загрузить файлы
+        </a>
+        
+        <a href="/view_elasticsearch-original" class="btn action-btn">
+            <i class="fas fa-search"></i> Просмотреть данные из Elasticsearch
+        </a>
+        
+        <form action="/validate_csv" method="post" class="d-inline">
+            <button type="submit" class="btn action-btn">
+                <i class="fas fa-trash-alt"></i> Удаление мусорных записей
+            </button>
+        </form>
+    </div>
+
+    <!-- Блок уведомлений -->
+    {% if show_alert %}
+        <div class="alert-container">
+            {% if success %}
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>
+                    {{ success }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
+            {% if error %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    {{ error }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
+
+<style>
+:root {
+    --strong-blue: #0079c1;
+    --strong-blue-hover: #0062a0;
+}
+
+.main-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+}
+
+.welcome-title {
+    color: var(--strong-blue);
+    margin-bottom: 15px;
+}
+
+.welcome-text {
+    color: #555;
+    margin-bottom: 30px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    background-color: var(--strong-blue);
+    color: white;
+    border-radius: 6px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    width: 100%;
+    text-align: center;
+}
+
+.action-btn:hover {
+    background-color: var(--strong-blue-hover);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn i {
+    margin-right: 10px;
+}
+
+.alert-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    min-width: 300px;
+}
+
+.alert {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+}
+</style>
 {% endblock %}

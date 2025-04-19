@@ -5,80 +5,80 @@
 {% block content %}
 <h2>Все записи из Elasticsearch</h2>
 
+<!-- Форма для полнотекстового поиска -->
+<div class="search-container">
+    <form method="get" action="/view_elasticsearch-original">
+        <label for="query">Поиск:</label>
+        <input type="text" id="query" name="query" value="{{ query or '' }}" placeholder="Введите запрос...">
+        <button type="submit" class="btn">Найти</button>
+    </form>
+</div>
+
 {% if error_message %}
 <p style="color: red;">{{ error_message }}</p>
 {% endif %}
 
-{% if records %}
-<table border="1">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Дата создания</th>
-            <th>Дата обновления</th>
-            <th>Имя</th>
-            <th>CI Code</th>
-            <th>Краткое имя</th>
-            <th>Полное имя</th>
-            <th>Описание</th>
-            <th>Примечания</th>
-            <th>Статус</th>
-            <th>Производитель</th>
-            <th>Серийный номер</th>
-            <th>Модель</th>
-            <th>Локация</th>
-            <th>Монтаж</th>
-            <th>Hostname</th>
-            <th>DNS</th>
-            <th>IP</th>
-            <th>CPU Cores</th>
-            <th>CPU Freq</th>
-            <th>RAM</th>
-            <th>Total Volume</th>
-            <th>Тип</th>
-            <th>Категория</th>
-            <th>Организация пользователя</th>
-            <th>Организация владельца</th>
-            <th>Код мониторинга</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for record in records %}
-        <tr>
-            <td>{{ record.id }}</td>
-            <td>{{ record.created_on }}</td>
-            <td>{{ record.updated_on }}</td>
-            <td>{{ record.name }}</td>
-            <td>{{ record.ci_code }}</td>
-            <td>{{ record.short_name }}</td>
-            <td>{{ record.full_name }}</td>
-            <td>{{ record.description }}</td>
-            <td>{{ record.notes }}</td>
-            <td>{{ record.status }}</td>
-            <td>{{ record.manufacturer }}</td>
-            <td>{{ record.serial }}</td>
-            <td>{{ record.model }}</td>
-            <td>{{ record.location }}</td>
-            <td>{{ record.mount }}</td>
-            <td>{{ record.hostname }}</td>
-            <td>{{ record.dns }}</td>
-            <td>{{ record.ip }}</td>
-            <td>{{ record.cpu_cores }}</td>
-            <td>{{ record.cpu_freq }}</td>
-            <td>{{ record.ram }}</td>
-            <td>{{ record.total_volume }}</td>
-            <td>{{ record.type }}</td>
-            <td>{{ record.category }}</td>
-            <td>{{ record.user_org }}</td>
-            <td>{{ record.owner_org }}</td>
-            <td>{{ record.code_mon }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>Записи не найдены.</p>
-{% endif %}
+<div class="table-container">
+    {% if records %}
+    <p>Показано {{ records|length }} из {{ total_hits }} записей.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Имя</th>
+                <th>CI Code</th>
+                <th>Краткое имя</th>
+                <th>Полное имя</th>
+                <th>Производитель</th>
+                <th>Серийный номер</th>
+                <th>Локация</th>
+                <th>Монтаж</th>
+                <th>Hostname</th>
+                <th>DNS</th>
+                <th>IP</th>
+                <th>Тип</th>
+                <th>Категория</th>
+                <th>Организация пользователя</th>
+                <th>Код мониторинга</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.name }}</td>
+                <td>{{ record.ci_code }}</td>
+                <td>{{ record.short_name }}</td>
+                <td>{{ record.full_name }}</td>
+                <td>{{ record.manufacturer }}</td>
+                <td>{{ record.serial }}</td>
+                <td>{{ record.location }}</td>
+                <td>{{ record.mount }}</td>
+                <td>{{ record.hostname }}</td>
+                <td>{{ record.dns }}</td>
+                <td>{{ record.ip }}</td>
+                <td>{{ record.type }}</td>
+                <td>{{ record.category }}</td>
+                <td>{{ record.user_org }}</td>
+                <td>{{ record.code_mon }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Пагинация -->
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="?page={{ page - 1 }}&size={{ size }}&query={{ query or '' }}">Назад</a>
+        {% endif %}
+        <span>Страница {{ page }} из {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a href="?page={{ page + 1 }}&size={{ size }}&query={{ query or '' }}">Вперед</a>
+        {% endif %}
+    </div>
+    {% else %}
+    <p>Записи не найдены.</p>
+    {% endif %}
+</div>
 
 <a href="/" class="btn">Назад на главную</a>
 {% endblock %}

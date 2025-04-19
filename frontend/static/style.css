@@ -137,3 +137,214 @@ li {
     max-width: 200px; /* Максимальная ширина логотипа */
     height: auto; /* Сохраняем пропорции */
 }
+
+
+/* Стили для контейнера таблицы */
+.table-container {
+    max-width: 100%; /* Ограничение по ширине */
+    overflow-x: auto; /* Горизонтальная прокрутка */
+    border: 1px solid #ddd; /* Граница вокруг таблицы */
+    border-radius: 8px; /* Закругленные углы */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Тень для эффекта карточки */
+    margin-bottom: 20px;
+}
+
+/* Стили для таблицы */
+table {
+    width: 100%; /* Полная ширина внутри контейнера */
+    border-collapse: collapse; /* Убираем двойные границы */
+    font-size: 14px; /* Размер шрифта */
+    text-align: left; /* Выравнивание текста */
+}
+
+/* Стили для заголовков таблицы */
+thead th {
+    background-color: #f4f4f4; /* Цвет фона заголовков */
+    color: #333; /* Цвет текста */
+    padding: 10px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для ячеек таблицы */
+tbody td {
+    padding: 8px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для строк таблицы */
+tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* Цвет фона четных строк */
+}
+
+tbody tr:hover {
+    background-color: #f1f1f1; /* Цвет фона при наведении */
+}
+
+/* Стили для контейнера таблицы */
+.table-container {
+    max-width: 100%; /* Ограничение по ширине */
+    margin: 0 auto; /* Выравнивание по центру */
+    padding: 20px; /* Внутренние отступы */
+    border: 1px solid #ddd; /* Граница вокруг контейнера */
+    border-radius: 8px; /* Закругленные углы */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Тень для эффекта карточки */
+    overflow-x: auto; /* Горизонтальная прокрутка */
+    background-color: #fff; /* Фон */
+}
+
+/* Стили для формы фильтрации */
+.table-container form {
+    margin-bottom: 20px; /* Отступ между формой и таблицей */
+}
+
+
+/* Стили для таблицы */
+.table-container table {
+    width: 100%; /* Полная ширина внутри контейнера */
+    border-collapse: collapse; /* Убираем двойные границы */
+    font-size: 14px; /* Размер шрифта */
+    text-align: left; /* Выравнивание текста */
+}
+
+/* Стили для заголовков таблицы */
+.table-container thead th {
+    background-color: #f4f4f4; /* Цвет фона заголовков */
+    color: #333; /* Цвет текста */
+    padding: 10px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для ячеек таблицы */
+.table-container tbody td {
+    padding: 8px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для строк таблицы */
+.table-container tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* Цвет фона четных строк */
+}
+
+.table-container tbody tr:hover {
+    background-color: #f1f1f1; /* Цвет фона при наведении */
+}
+
+/* Стили для пагинации */
+.pagination {
+    margin-top: 20px; /* Отступ сверху */
+    text-align: center; /* Выравнивание по центру */
+}
+
+.pagination a {
+    margin: 0 5px; /* Отступы между ссылками */
+    padding: 5px 10px; /* Внутренние отступы */
+    background-color: #007bff; /* Цвет фона */
+    color: #fff; /* Цвет текста */
+    text-decoration: none; /* Убираем подчеркивание */
+    border-radius: 4px; /* Закругленные углы */
+}
+
+.pagination a:hover {
+    background-color: #0056b3; /* Цвет фона при наведении */
+}
+
+/* Стили для контейнера таблицы */
+.table-container {
+    max-width: 100%; /* Ограничение по ширине */
+    margin: 0 auto; /* Выравнивание по центру */
+    padding: 20px; /* Внутренние отступы */
+    border: 1px solid #ddd; /* Граница вокруг контейнера */
+    border-radius: 8px; /* Закругленные углы */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Тень для эффекта карточки */
+    overflow-x: auto; /* Горизонтальная прокрутка */
+    background-color: #fff; /* Фон */
+}
+
+/* Стили для таблицы */
+.table-container table {
+    width: 100%; /* Полная ширина внутри контейнера */
+    border-collapse: collapse; /* Убираем двойные границы */
+    font-size: 14px; /* Размер шрифта */
+    text-align: left; /* Выравнивание текста */
+}
+
+/* Стили для заголовков таблицы */
+.table-container thead th {
+    background-color: #f4f4f4; /* Цвет фона заголовков */
+    color: #333; /* Цвет текста */
+    padding: 10px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для ячеек таблицы */
+.table-container tbody td {
+    padding: 8px; /* Отступы */
+    border: 1px solid #ddd; /* Границы */
+    white-space: nowrap; /* Запрет переноса текста */
+}
+
+/* Стили для строк таблицы */
+.table-container tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* Цвет фона четных строк */
+}
+
+.table-container tbody tr:hover {
+    background-color: #f1f1f1; /* Цвет фона при наведении */
+}
+
+/* Стили для формы поиска */
+.search-container {
+    margin-bottom: 20px; /* Отступ снизу */
+    display: flex;
+    align-items: center;
+}
+
+.search-container label {
+    margin-right: 10px; /* Отступ между меткой и полем ввода */
+}
+
+.search-container input[type="text"] {
+    padding: 5px; /* Внутренние отступы */
+    border: 1px solid #ccc; /* Граница */
+    border-radius: 4px; /* Закругленные углы */
+    width: 250px; /* Ширина поля ввода */
+}
+
+.search-container button {
+    margin-left: 10px; /* Отступ слева от кнопки */
+    padding: 5px 10px; /* Внутренние отступы */
+    background-color: #007bff; /* Цвет фона */
+    color: #fff; /* Цвет текста */
+    border: none; /* Убираем границу */
+    border-radius: 4px; /* Закругленные углы */
+    cursor: pointer; /* Изменение курсора при наведении */
+}
+
+.search-container button:hover {
+    background-color: #0056b3; /* Цвет фона при наведении */
+}
+
+/* Стили для пагинации */
+.pagination {
+    margin-top: 20px; /* Отступ сверху */
+    text-align: center; /* Выравнивание по центру */
+}
+
+
+.pagination a {
+    margin: 0 5px; /* Отступы между ссылками */
+    padding: 5px 10px; /* Внутренние отступы */
+    background-color: #007bff; /* Цвет фона */
+    color: #fff; /* Цвет текста */
+    text-decoration: none; /* Убираем подчеркивание */
+    border-radius: 4px; /* Закругленные углы */
+}
+
+.pagination a:hover {
+    background-color: #0056b3; /* Цвет фона при наведении */
+}
