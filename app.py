@@ -151,8 +151,8 @@ def safe_float_conversion(value):
     except (ValueError, TypeError):
         return None
 
-def import_to_elasticsearch(file_path: str):
-    """Импортирует данные из CSV в Elasticsearch"""
+def import_to_elasticsearch(file_path: str, index_name: str):
+    """Обновленная функция импорта с поддержкой разных индексов"""
     if not os.path.exists(file_path):
         print(f"Ошибка: файл {file_path} не найден!")
         return False
@@ -194,33 +194,37 @@ def import_to_elasticsearch(file_path: str):
                         "code_mon": row.get("code_mon", "").strip()
                     }
                     
+                    # Для невалидных записей добавляем информацию об ошибках валидации
+                    if index_name == "deleted_db":
+                        doc["validation_errors"] = get_validation_errors(row)
+                    
                     doc = {k: v for k, v in doc.items() if v not in (None, "")}
                     
                     if doc:
                         es.index(
-                            index=ELASTICSEARCH_INDEX,
+                            index=index_name,
                             document=doc,
                             id=doc.get("id")  # Используем id как идентификатор документа
                         )
                         total_docs += 1
                         
                     if i % 100 == 0:
-                        print(f"Обработано {i} строк | Добавлено {total_docs} документов")
+                        print(f"Обработано {i} строк | Добавлено {total_docs} документов в {index_name}")
                         
                 except Exception as doc_error:
                     print(f"Ошибка в строке {i}: {doc_error}")
                     continue
             
-            print(f"Импорт завершен. Всего строк: {i}, успешно добавлено: {total_docs}")
+            print(f"Импорт в {index_name} завершен. Всего строк: {i}, успешно добавлено: {total_docs}")
             
             if total_docs > 0:
-                count = es.count(index=ELASTICSEARCH_INDEX)['count']
-                print(f"Документов в индексе {ELASTICSEARCH_INDEX}: {count}")
+                count = es.count(index=index_name)['count']
+                print(f"Документов в индексе {index_name}: {count}")
             
             return True
             
     except Exception as e:
-        print(f"Критическая ошибка импорта: {str(e)}")
+        print(f"Критическая ошибка импорта в {index_name}: {str(e)}")
         return False
 
 def get_etalon_headers():
@@ -234,7 +238,7 @@ def get_etalon_headers():
         return next(reader)
 
 def merge_csv():
-    """Объединяет первые 2000 строк из каждого CSV файла"""
+    """Объединяет первые 1000 строк из каждого CSV файла"""
     try:
         etalon_headers = get_etalon_headers()
         csv_files = [f for f in os.listdir(CSV_FOLDER) 
@@ -252,7 +256,7 @@ def merge_csv():
                     file_path,
                     encoding='utf-8',
                     sep=',',
-                    nrows=2000
+                    nrows=1000
                 )
                 
                 missing_cols = set(etalon_headers) - set(df.columns)
@@ -398,6 +402,157 @@ def all_regular_is_valid(row: dict) -> bool:
         print(f"Ошибка валидации строки: {e}")
         return False
 
+def create_result_index():
+    """Создает индекс result_db в Elasticsearch для валидных данных"""
+    if es.indices.exists(index="result_db"):
+        es.indices.delete(index="result_db")
+    
+    mapping = {
+        "mappings": {
+            "properties": {
+                "id": {"type": "integer"},
+                "created_on": {"type": "date"},
+                "updated_on": {"type": "date"},
+                "name": {"type": "text"},
+                "ci_code": {"type": "keyword"},
+                "short_name": {"type": "text"},
+                "full_name": {"type": "text"},
+                "description": {"type": "text"},
+                "notes": {"type": "text"},
+                "status": {"type": "keyword"},
+                "manufacturer": {"type": "keyword"},
+                "serial": {"type": "keyword"},
+                "model": {"type": "keyword"},
+                "location": {"type": "keyword"},
+                "mount": {"type": "keyword"},
+                "hostname": {"type": "keyword"},
+                "dns": {"type": "keyword"},
+                "ip": {"type": "ip"},
+                "cpu_cores": {"type": "integer"},
+                "cpu_freq": {"type": "float"},
+                "ram": {"type": "integer"},
+                "total_volume": {"type": "integer"},
+                "type": {"type": "keyword"},
+                "category": {"type": "keyword"},
+                "user_org": {"type": "keyword"},
+                "owner_org": {"type": "keyword"},
+                "code_mon": {"type": "keyword"}
+            }
+        }
+    }
+    es.indices.create(index="result_db", body=mapping)
+
+def create_deleted_index():
+    """Создает индекс deleted_db в Elasticsearch для невалидных данных"""
+    if es.indices.exists(index="deleted_db"):
+        es.indices.delete(index="deleted_db")
+    
+    mapping = {
+        "mappings": {
+            "properties": {
+                "id": {"type": "integer"},
+                "created_on": {"type": "date"},
+                "updated_on": {"type": "date"},
+                "name": {"type": "text"},
+                "ci_code": {"type": "keyword"},
+                "short_name": {"type": "text"},
+                "full_name": {"type": "text"},
+                "description": {"type": "text"},
+                "notes": {"type": "text"},
+                "status": {"type": "keyword"},
+                "manufacturer": {"type": "keyword"},
+                "serial": {"type": "keyword"},
+                "model": {"type": "keyword"},
+                "location": {"type": "keyword"},
+                "mount": {"type": "keyword"},
+                "hostname": {"type": "keyword"},
+                "dns": {"type": "keyword"},
+                "ip": {"type": "ip"},
+                "cpu_cores": {"type": "integer"},
+                "cpu_freq": {"type": "float"},
+                "ram": {"type": "integer"},
+                "total_volume": {"type": "integer"},
+                "type": {"type": "keyword"},
+                "category": {"type": "keyword"},
+                "user_org": {"type": "keyword"},
+                "owner_org": {"type": "keyword"},
+                "code_mon": {"type": "keyword"},
+                "validation_errors": {"type": "text"}  # Дополнительное поле для ошибок валидации
+            }
+        }
+    }
+    es.indices.create(index="deleted_db", body=mapping)
+
+def get_validation_errors(row: dict) -> str:
+    """Возвращает строку с описанием ошибок валидации для невалидных записей"""
+    errors = []
+    
+    if not re.fullmatch(status_pattern, str(row.get(STATUS, ''))):
+        errors.append("Неверный формат статуса")
+    
+    if not re.fullmatch(ci_code_pattern, str(row.get(CI_CODE, ''))):
+        errors.append("Неверный формат CI кода")
+    
+
+@app.post("/validate_csv")
+async def handle_validate_csv(request: Request):
+    try:
+        input_path = os.path.join(CSV_FOLDER, MERGED)
+        result_path = os.path.join(CSV_FOLDER, RESULT)
+        deleted_path = os.path.join(CSV_FOLDER, DELETED)
+        
+        if not os.path.exists(input_path):
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "error": "Файл input.csv не найден",
+                    "show_alert": True
+                }
+            )
+        
+        # Создаем индексы перед валидацией
+        create_result_index()
+        create_deleted_index()
+        
+        validation_result = validate_csv(input_path, result_path, deleted_path)
+        
+        if validation_result["status"] == "success":
+            # Импортируем валидные данные в result_db
+            import_to_elasticsearch(result_path, index_name="result_db")
+            
+            # Импортируем невалидные данные в deleted_db
+            import_to_elasticsearch(deleted_path, index_name="deleted_db")
+            
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "success": f"Обработано записей: {validation_result['valid_count']} валидных, {validation_result['invalid_count']} невалидных",
+                    "show_alert": True
+                }
+            )
+        else:
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "error": f"Ошибка валидации: {validation_result['message']}",
+                    "show_alert": True
+                }
+            )
+            
+    except Exception as e:
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "error": f"Ошибка: {str(e)}",
+                "show_alert": True
+            }
+        )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -447,7 +602,7 @@ async def merge_files(request: Request):
         
         # Создаем индекс и импортируем данные
         create_elastic_index()
-        if not import_to_elasticsearch(merged_file):
+        if not import_to_elasticsearch(merged_file, ELASTICSEARCH_INDEX):
             raise Exception("Ошибка при импорте данных в Elasticsearch")
         
         return RedirectResponse(
@@ -576,9 +731,19 @@ async def handle_validate_csv(request: Request):
                 }
             )
         
+        # Создаем индексы перед валидацией
+        create_result_index()
+        create_deleted_index()
+        
         validation_result = validate_csv(input_path, result_path, deleted_path)
         
         if validation_result["status"] == "success":
+            # Импортируем валидные данные в result_db
+            import_to_elasticsearch(result_path, index_name="result_db")
+            
+            # Импортируем невалидные данные в deleted_db
+            import_to_elasticsearch(deleted_path, index_name="deleted_db")
+            
             return templates.TemplateResponse(
                 "index.html",
                 {
@@ -605,6 +770,206 @@ async def handle_validate_csv(request: Request):
                 "error": f"Ошибка: {str(e)}",
                 "show_alert": True
             }
+        )
+
+@app.get("/view_elasticsearch-result", response_class=HTMLResponse)
+async def view_elasticsearch_result(
+    request: Request,
+    query: Optional[str] = None,  # Полнотекстовый запрос
+    page: int = 1,  # Номер страницы
+    size: int = 50  # Количество документов на странице
+):
+    try:
+        # Расчет смещения (offset) для пагинации
+        from_ = (page - 1) * size
+
+        # Формируем запрос к Elasticsearch
+        if query:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": [
+                            "name",
+                            "ci_code",
+                            "short_name",
+                            "full_name",
+                            "description",
+                            "notes",
+                            "manufacturer",
+                            "serial",
+                            "model",
+                            "location",
+                            "mount",
+                            "hostname",
+                            "dns",
+                            "type",
+                            "category",
+                            "user_org",
+                            "owner_org",
+                            "code_mon"
+                        ]
+                    }
+                }
+            }
+        else:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {"match_all": {}}
+            }
+
+        # Выполняем поиск в индексе 'result_db'
+        response = es.search(index="result_db", body=search_query)
+
+        # Извлечение данных из ответа Elasticsearch
+        records = [
+            {
+                "_id": hit["_id"],  # ID документа в Elasticsearch
+                "id": hit["_source"].get("id", "N/A"),
+                "name": hit["_source"].get("name", "N/A"),
+                "ci_code": hit["_source"].get("ci_code", "N/A"),
+                "short_name": hit["_source"].get("short_name", "N/A"),
+                "full_name": hit["_source"].get("full_name", "N/A"),
+                "manufacturer": hit["_source"].get("manufacturer", "N/A"),
+                "serial": hit["_source"].get("serial", "N/A"),
+                "location": hit["_source"].get("location", "N/A"),
+                "mount": hit["_source"].get("mount", "N/A"),
+                "hostname": hit["_source"].get("hostname", "N/A"),
+                "dns": hit["_source"].get("dns", "N/A"),
+                "ip": hit["_source"].get("ip", "N/A"),
+                "type": hit["_source"].get("type", "N/A"),
+                "category": hit["_source"].get("category", "N/A"),
+                "user_org": hit["_source"].get("user_org", "N/A"),
+                "code_mon": hit["_source"].get("code_mon", "N/A")
+            }
+            for hit in response["hits"]["hits"]
+        ]
+
+        # Подготовка данных для пагинации
+        total_hits = response["hits"]["total"]["value"]  # Общее количество документов
+        total_pages = (total_hits + size - 1) // size  # Общее количество страниц
+
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {
+                "request": request,
+                "records": records,
+                "page": page,
+                "size": size,
+                "total_pages": total_pages,
+                "total_hits": total_hits,
+                "query": query  # Передаем текущий запрос обратно в шаблон
+            }
+        )
+    except Exception as e:
+        error_message = f"Ошибка при получении данных из Elasticsearch: {str(e)}"
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {"request": request, "error_message": error_message}
+        )
+
+
+
+@app.get("/view_elasticsearch-delete", response_class=HTMLResponse)
+async def view_elasticsearch_delete(
+    request: Request,
+    query: Optional[str] = None,  # Полнотекстовый запрос
+    page: int = 1,  # Номер страницы
+    size: int = 50  # Количество документов на странице
+):
+    try:
+        # Расчет смещения (offset) для пагинации
+        from_ = (page - 1) * size
+
+        # Формируем запрос к Elasticsearch
+        if query:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": [
+                            "name",
+                            "ci_code",
+                            "short_name",
+                            "full_name",
+                            "description",
+                            "notes",
+                            "manufacturer",
+                            "serial",
+                            "model",
+                            "location",
+                            "mount",
+                            "hostname",
+                            "dns",
+                            "type",
+                            "category",
+                            "user_org",
+                            "owner_org",
+                            "code_mon"
+                        ]
+                    }
+                }
+            }
+        else:
+            search_query = {
+                "from": from_,
+                "size": size,
+                "query": {"match_all": {}}
+            }
+
+        # Выполняем поиск в индексе 'deleted_db'
+        response = es.search(index="deleted_db", body=search_query)
+
+        # Извлечение данных из ответа Elasticsearch
+        records = [
+            {
+                "_id": hit["_id"],  # ID документа в Elasticsearch
+                "id": hit["_source"].get("id", "N/A"),
+                "name": hit["_source"].get("name", "N/A"),
+                "ci_code": hit["_source"].get("ci_code", "N/A"),
+                "short_name": hit["_source"].get("short_name", "N/A"),
+                "full_name": hit["_source"].get("full_name", "N/A"),
+                "manufacturer": hit["_source"].get("manufacturer", "N/A"),
+                "serial": hit["_source"].get("serial", "N/A"),
+                "location": hit["_source"].get("location", "N/A"),
+                "mount": hit["_source"].get("mount", "N/A"),
+                "hostname": hit["_source"].get("hostname", "N/A"),
+                "dns": hit["_source"].get("dns", "N/A"),
+                "ip": hit["_source"].get("ip", "N/A"),
+                "type": hit["_source"].get("type", "N/A"),
+                "category": hit["_source"].get("category", "N/A"),
+                "user_org": hit["_source"].get("user_org", "N/A"),
+                "code_mon": hit["_source"].get("code_mon", "N/A")
+            }
+            for hit in response["hits"]["hits"]
+        ]
+
+        # Подготовка данных для пагинации
+        total_hits = response["hits"]["total"]["value"]  # Общее количество документов
+        total_pages = (total_hits + size - 1) // size  # Общее количество страниц
+
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {
+                "request": request,
+                "records": records,
+                "page": page,
+                "size": size,
+                "total_pages": total_pages,
+                "total_hits": total_hits,
+                "query": query  # Передаем текущий запрос обратно в шаблон
+            }
+        )
+    except Exception as e:
+        error_message = f"Ошибка при получении данных из Elasticsearch: {str(e)}"
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {"request": request, "error_message": error_message}
         )
 
 

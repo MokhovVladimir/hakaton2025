@@ -12,11 +12,20 @@
         <a href="/upload" class="btn action-btn">
             <i class="fas fa-upload"></i> Загрузить файлы
         </a>
-        
+
+        <!-- Добавленные кнопки -->
         <a href="/view_elasticsearch-original" class="btn action-btn">
-            <i class="fas fa-search"></i> Просмотреть данные из Elasticsearch
+            <i class="fas fa-database"></i> Просмотреть все данные из Elasticsearch
         </a>
-        
+
+        <a href="/view_elasticsearch-result" class="btn action-btn">
+            <i class="fas fa-check-circle"></i> Посмотреть обработанные данные
+        </a>
+
+        <a href="/view_elasticsearch-delete" class="btn action-btn">
+            <i class="fas fa-trash"></i> Посмотреть удаленные данные
+        </a>
+
         <form action="/validate_csv" method="post" class="d-inline">
             <button type="submit" class="btn action-btn">
                 <i class="fas fa-trash-alt"></i> Удаление мусорных записей
