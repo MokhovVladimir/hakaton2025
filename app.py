@@ -9,7 +9,6 @@ from datetime import datetime
 import glob
 from elasticsearch import Elasticsearch
 from pathlib import Path
-import csv
 import pandas as pd
 
 app = FastAPI()
@@ -24,7 +23,9 @@ MERGED = 'input.csv'
 RESULT = 'result.csv'
 DELETED = 'deleted.csv'
 
+# Инициализация Elasticsearch с таймаутами
 es = Elasticsearch([ELASTICSEARCH_HOST])
+
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 templates = Jinja2Templates(directory="frontend/templates")
 
@@ -90,7 +91,7 @@ def safe_float_conversion(value):
         return None
 
 def import_to_elasticsearch(file_path: str):
-    """Полная версия импорта данных с обработкой всех полей"""
+    """Импортирует данные из CSV в Elasticsearch"""
     if not os.path.exists(file_path):
         print(f"Ошибка: файл {file_path} не найден!")
         return False
@@ -102,22 +103,10 @@ def import_to_elasticsearch(file_path: str):
             
             for i, row in enumerate(reader, 1):
                 try:
-                    # Полное преобразование всех полей
                     doc = {
-                        # Числовые поля
-                        "id": int(row["id"]) if row.get("id") and row["id"].strip().isdigit() else None,
-                        "cpu_cores": int(row["cpu_cores"]) if row.get("cpu_cores") and row["cpu_cores"].strip().isdigit() else None,
-                        "ram": int(row["ram"]) if row.get("ram") and row["ram"].strip().isdigit() else None,
-                        "total_volume": int(row["total_volume"]) if row.get("total_volume") and row["total_volume"].strip().isdigit() else None,
-                        
-                        # Числа с плавающей точкой
-                        "cpu_freq": float(row["cpu_freq"]) if row.get("cpu_freq") and row["cpu_freq"].strip().replace('.','',1).isdigit() else None,
-                        
-                        # Даты
+                        "id": safe_int_conversion(row.get("id")),
                         "created_on": parse_date(row.get("created_on")),
                         "updated_on": parse_date(row.get("updated_on")),
-                        
-                        # Строковые поля
                         "name": row.get("name", "").strip(),
                         "ci_code": row.get("ci_code", "").strip(),
                         "short_name": row.get("short_name", "").strip(),
@@ -133,6 +122,10 @@ def import_to_elasticsearch(file_path: str):
                         "hostname": row.get("hostname", "").strip(),
                         "dns": row.get("dns", "").strip(),
                         "ip": row.get("ip", "").strip(),
+                        "cpu_cores": safe_int_conversion(row.get("cpu_cores")),
+                        "cpu_freq": safe_float_conversion(row.get("cpu_freq")),
+                        "ram": safe_int_conversion(row.get("ram")),
+                        "total_volume": safe_int_conversion(row.get("total_volume")),
                         "type": row.get("type", "").strip(),
                         "category": row.get("category", "").strip(),
                         "user_org": row.get("user_org", "").strip(),
@@ -140,42 +133,35 @@ def import_to_elasticsearch(file_path: str):
                         "code_mon": row.get("code_mon", "").strip()
                     }
                     
-                    # Удаляем None-значения и пустые строки
                     doc = {k: v for k, v in doc.items() if v not in (None, "")}
                     
-                    # Индексация с проверкой
-                    if doc:  # Только если есть данные
+                    if doc:
                         es.index(
                             index=ELASTICSEARCH_INDEX,
                             document=doc,
                             id=doc.get("id")  # Используем id как идентификатор документа
                         )
                         total_docs += 1
-                    
-                    # Логирование прогресса
+                        
                     if i % 100 == 0:
                         print(f"Обработано {i} строк | Добавлено {total_docs} документов")
-                        print("Пример документа:", {k: v for k, v in list(doc.items())[:3]})
-                
+                        
                 except Exception as doc_error:
-                    print(f"Ошибка в строке {i}: {doc_error}\nПроблемная строка: {row}")
+                    print(f"Ошибка в строке {i}: {doc_error}")
                     continue
             
-            # Финальная проверка
             print(f"Импорт завершен. Всего строк: {i}, успешно добавлено: {total_docs}")
             
-            # Проверяем количество документов в индексе
             if total_docs > 0:
                 count = es.count(index=ELASTICSEARCH_INDEX)['count']
                 print(f"Документов в индексе {ELASTICSEARCH_INDEX}: {count}")
-                if count != total_docs:
-                    print("Предупреждение: количество добавленных документов не совпадает с ожидаемым!")
             
             return True
             
     except Exception as e:
-        print(f"Критическая ошибка импорта: {str(e)}", exc_info=True)
+        print(f"Критическая ошибка импорта: {str(e)}")
         return False
+
 def get_etalon_headers():
     """Получает заголовки из fields.csv"""
     fields_path = os.path.join(CSV_FOLDER, 'fields.csv')
@@ -187,7 +173,7 @@ def get_etalon_headers():
         return next(reader)
 
 def merge_csv():
-    """Объединяет первые 500 строк из каждого CSV файла в папке db"""
+    """Объединяет первые 500 строк из каждого CSV файла"""
     try:
         etalon_headers = get_etalon_headers()
         csv_files = [f for f in os.listdir(CSV_FOLDER) 
@@ -197,32 +183,23 @@ def merge_csv():
             print("Нет CSV файлов для обработки")
             return None
         
-        # Используем pandas для объединения с ограничением строк
         dfs = []
         for filename in csv_files:
             file_path = os.path.join(CSV_FOLDER, filename)
             try:
-                # Читаем только первые 500 строк каждого файла
                 df = pd.read_csv(
                     file_path,
                     encoding='utf-8',
                     sep=',',
-                    nrows=500  # Ограничение количества строк
+                    nrows=500
                 )
                 
-                # Проверяем и выравниваем заголовки
                 missing_cols = set(etalon_headers) - set(df.columns)
-                extra_cols = set(df.columns) - set(etalon_headers)
-                
                 if missing_cols:
                     print(f"В файле {filename} отсутствуют колонки: {missing_cols}")
-                if extra_cols:
-                    print(f"В файле {filename} есть лишние колонки: {extra_cols}")
                 
-                # Оставляем только нужные колонки в правильном порядке
                 df = df[etalon_headers]
                 dfs.append(df)
-                
                 print(f"Обработан файл {filename} (строк: {len(df)})")
                 
             except Exception as file_error:
@@ -233,11 +210,8 @@ def merge_csv():
             print("Нет данных для объединения")
             return None
         
-        # Объединяем и сохраняем
         result = pd.concat(dfs, ignore_index=True)
         merged_path = os.path.join(CSV_FOLDER, MERGED)
-        
-        # Сохраняем с проверкой количества строк
         result.to_csv(merged_path, index=False, encoding='utf-8', sep=',')
         print(f"Объединенный файл сохранен: {merged_path} (строк: {len(result)})")
         
@@ -253,13 +227,11 @@ def add_to_result(row):
         etalon_headers = get_etalon_headers()
         result_path = os.path.join(CSV_FOLDER, RESULT)
         
-        # Если файл не существует или пуст, добавляем заголовки
         if not os.path.exists(result_path) or os.stat(result_path).st_size == 0:
             with open(result_path, 'a', encoding='utf-8', newline='') as of:
                 writer = csv.writer(of)
                 writer.writerow(etalon_headers)
         
-        # Добавляем строку
         with open(result_path, 'a', encoding='utf-8', newline='') as of:
             writer = csv.writer(of)
             writer.writerow(row)
@@ -275,13 +247,11 @@ def add_to_deleted(row):
         etalon_headers = get_etalon_headers()
         deleted_path = os.path.join(CSV_FOLDER, DELETED)
         
-        # Если файл не существует или пуст, добавляем заголовки
         if not os.path.exists(deleted_path) or os.stat(deleted_path).st_size == 0:
             with open(deleted_path, 'a', encoding='utf-8', newline='') as of:
                 writer = csv.writer(of)
                 writer.writerow(etalon_headers)
         
-        # Добавляем строку
         with open(deleted_path, 'a', encoding='utf-8', newline='') as of:
             writer = csv.writer(of)
             writer.writerow(row)
@@ -290,7 +260,6 @@ def add_to_deleted(row):
     except Exception as e:
         print(f"Ошибка при добавлении в deleted.csv: {str(e)}")
         return False
-
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -303,37 +272,6 @@ async def read_upload(request: Request, success: str = None, error: str = None):
         "success": success,
         "error": error
     })
-
-# Поиск данных в Elasticsearch
-@app.get("/view_elasticsearch", response_class=HTMLResponse)
-async def view_elasticsearch(request: Request):
-    try:
-        # Запрос всех документов из индекса 'uploaded_files'
-        response = es.search(
-            index="uploaded_files",
-            body={"query": {"match_all": {}}}
-        )
-        # Извлечение данных из ответа Elasticsearch
-        records = [
-            {
-                "id": hit["_id"],
-                "filename": hit["_source"].get("filename", "N/A"),
-                "content": hit["_source"].get("content", "N/A"),
-                "timestamp": hit["_source"].get("timestamp", "N/A")
-            }
-            for hit in response["hits"]["hits"]
-        ]
-        return templates.TemplateResponse(
-            "view_elasticsearch.html",
-            {"request": request, "records": records}
-        )
-    except Exception as e:
-        error_message = f"Ошибка при получении данных из Elasticsearch: {str(e)}"
-        return templates.TemplateResponse(
-            "view_elasticsearch.html",
-            {"request": request, "error_message": error_message}
-        )
-
 
 @app.post("/upload_files")
 async def upload_files(request: Request, files: list[UploadFile] = File(...)):
@@ -358,6 +296,11 @@ async def upload_files(request: Request, files: list[UploadFile] = File(...)):
 @app.post("/merge_files")
 async def merge_files(request: Request):
     try:
+        # Проверяем подключение к Elasticsearch
+        if not es.ping():
+            raise ConnectionError("Не удалось подключиться к Elasticsearch")
+        
+        # Объединяем файлы
         merged_file = merge_csv()
         if not merged_file:
             return RedirectResponse(
@@ -365,14 +308,71 @@ async def merge_files(request: Request):
                 status_code=303
             )
         
+        # Создаем индекс и импортируем данные
+        create_elastic_index()
+        if not import_to_elasticsearch(merged_file):
+            raise Exception("Ошибка при импорте данных в Elasticsearch")
+        
         return RedirectResponse(
-            f"/upload?success=Файлы+объединены+в+{MERGED}",
+            f"/upload?success=Файлы+объединены+и+загружены+в+Elasticsearch",
             status_code=303
         )
     except Exception as e:
         return RedirectResponse(
-            f"/upload?error=Ошибка+объединения:+{str(e).replace(' ', '+')}",
+            f"/upload?error=Ошибка:+{str(e).replace(' ', '+')}",
             status_code=303
+        )
+
+@app.get("/view_elasticsearch", response_class=HTMLResponse)
+async def view_elasticsearch(request: Request):
+    try:
+        # Запрос всех документов из индекса 'input_db'
+        response = es.search(
+            index="input_db",
+            body={"query": {"match_all": {}}}
+        )
+        # Извлечение данных из ответа Elasticsearch
+        records = [
+            {
+                "id": hit["_source"].get("id", "N/A"),
+                "created_on": hit["_source"].get("created_on", "N/A"),
+                "updated_on": hit["_source"].get("updated_on", "N/A"),
+                "name": hit["_source"].get("name", "N/A"),
+                "ci_code": hit["_source"].get("ci_code", "N/A"),
+                "short_name": hit["_source"].get("short_name", "N/A"),
+                "full_name": hit["_source"].get("full_name", "N/A"),
+                "description": hit["_source"].get("description", "N/A"),
+                "notes": hit["_source"].get("notes", "N/A"),
+                "status": hit["_source"].get("status", "N/A"),
+                "manufacturer": hit["_source"].get("manufacturer", "N/A"),
+                "serial": hit["_source"].get("serial", "N/A"),
+                "model": hit["_source"].get("model", "N/A"),
+                "location": hit["_source"].get("location", "N/A"),
+                "mount": hit["_source"].get("mount", "N/A"),
+                "hostname": hit["_source"].get("hostname", "N/A"),
+                "dns": hit["_source"].get("dns", "N/A"),
+                "ip": hit["_source"].get("ip", "N/A"),
+                "cpu_cores": hit["_source"].get("cpu_cores", "N/A"),
+                "cpu_freq": hit["_source"].get("cpu_freq", "N/A"),
+                "ram": hit["_source"].get("ram", "N/A"),
+                "total_volume": hit["_source"].get("total_volume", "N/A"),
+                "type": hit["_source"].get("type", "N/A"),
+                "category": hit["_source"].get("category", "N/A"),
+                "user_org": hit["_source"].get("user_org", "N/A"),
+                "owner_org": hit["_source"].get("owner_org", "N/A"),
+                "code_mon": hit["_source"].get("code_mon", "N/A")
+            }
+            for hit in response["hits"]["hits"]
+        ]
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {"request": request, "records": records}
+        )
+    except Exception as e:
+        error_message = f"Ошибка при получении данных из Elasticsearch: {str(e)}"
+        return templates.TemplateResponse(
+            "view_elasticsearch.html",
+            {"request": request, "error_message": error_message}
         )
 
 if __name__ == "__main__":
